@@ -1,0 +1,51 @@
+####################################################################################################
+###### This PL/SQL code was written to parallelize a row-by-row operation on a big          ########
+###### non-partitioned table (pre 11.2). Idea was to manually divide the table into small chunks ###
+###### using rowids. These rowids are populated into a pre-existing table t_chunks:     ############
+###### 'create table t_chunks(b_id rowid,e_id rowid)'. Each row in t_chunks represents    ##########
+###### begin rowid and end rowid of one chunk. Using each row in t_chunks table,        ############
+###### we were able to parallelize the row-by-row operation by running it              #############
+###### from different sessions.                                                        #############
+###### So, this procedure takes table_name and a column_name as first two arguments   ##############
+###### Populates a pre-existing table t_chunks. Each row in t_chunks represents           ##########
+###### begin rowid and end rowid of one chunk. Size of each chunk is user defined and is  ##########
+###### 3rd Argument of the procedure : Rows_per_chunk               ################################
+###### Warning: No exception handling done #########################################################
+####################################################################################################
+create or replace procedure populate_chunks (tab_name in varchar2,col_name in varchar2,rows_per_chunk in number)as
+r_id rowid;
+p_end_id rowid;
+l_col_name varchar2(256);
+l_count number;
+l_row_id rowid;
+l_cursor sys_refcursor;
+l_t_name varchar2(30);
+begin
+open l_cursor for 'select table_name from user_tables where table_name = :t1' using tab_name;
+fetch l_cursor into l_t_name;
+execute immediate 'truncate table t_chunks';
+execute immediate 'select min(rowid) from  '|| l_t_name into r_id;
+insert into t_chunks(b_rid) values (r_id);
+commit;
+open l_cursor for 'select '||col_name||',rowid from '|| l_t_name ||' order by rowid';
+	loop
+		fetch l_cursor into l_col_name,l_row_id;
+		exit when l_cursor%notfound;
+		if mod(l_cursor%rowcount,rows_per_chunk) = 0 then
+		select max(e_rid) into p_end_id from t_chunks;  	-- check for first row
+			if p_end_id is not null then            				-- Check for first row
+				insert into t_chunks (e_rid) values(l_row_id); 
+				execute immediate 'update t_chunks set b_rid =(select min(rowid) from '|| l_t_name||' where rowid > (select max(e_rid) from t_chunks where b_rid is not null and e_rid is not null)) where b_rid is null';
+				commit;
+			else
+				update t_chunks set e_rid=l_row_id;  -- If first row, just update the end_rowid to point to current.
+				commit;
+			end if;
+		end if;
+	end loop;
+insert into t_chunks values ('',''); 
+execute immediate ' update t_chunks set b_rid =(select min(rowid) from ' || l_t_name||' where rowid > (select max(e_rid) from t_chunks)) where b_rid is null';
+execute immediate ' update t_chunks set e_rid = (select max(rowid) from '||l_t_name||' ) where e_rid is null';
+end;
+/
+
