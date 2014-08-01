@@ -1,12 +1,12 @@
 ##############################################################
 ### Simple shell script to check for DataGuard status  #######
-### Features : 									                   ###########
-###			i	RAC Aware		   				                   ###########
-### 		ii Alerts if DR site is out of sync	       ###########
-###            for more than 15 minutes.		       ###########
-### Platform: AIX only							               ###########
-### Tested Version: 11.2.0.3 and 11.2.0.4		       ###########
-### Author: Saurabh Manroy						             ###########
+### Features : 									   ###########
+###			i	RAC Aware		   				   ###########
+### 		ii Alerts if DR site is out of sync	   ###########
+###            for more than 15 minutes.		   ###########
+### Platform: AIX only							   ###########
+### Tested Version: 11.2.0.3 and 11.2.0.4		   ###########
+### Author: Saurabh Manroy						   ###########
 ##############################################################
 #!/usr/bin/ksh
 export ORACLE_SID=`ps -ef | grep ora_pmon | grep -v grep | awk -F "_" '{print $NF}'`
