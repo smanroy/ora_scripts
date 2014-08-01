@@ -1,0 +1,20 @@
+####################################################
+###### Connection Explosion ########################
+###### Run the script below that calls tmp.sh ######
+###### a defines # of connections             ######
+####################################################
+#!/usr/bin/ksh
+a=300
+while [ $a -gt 0 ]
+do
+tmp.sh &
+sleep 1
+a=$((a-1))
+done
+
+#################################
+####### tmp.sh referred above ###
+#################################
+sqlplus scott/tiger@orcl <<EOF
+exec dbms_lock.sleep(600);
+EOF
