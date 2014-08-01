@@ -1,0 +1,32 @@
+##############################################################
+### Simple script to check for ASM diskgroup usage ###########
+### Platform: AIX only							               ###########
+### Author: Saurabh Manroy						             ###########
+### Version: 10.2 and above                        ###########
+##############################################################
+#!/usr/bin/ksh
+export ORACLE_SID=`ps -ef | grep asm_pmon | grep -v grep | awk -F "_" '{print $NF}'`
+export ORACLE_HOME=`ps -ef | grep asm_pmon | grep -v grep | awk '{print $2}' | xargs ps ewww | tr ' ' '\n' | grep ORACLE_HOME | awk -F "=" '{print $2}'`
+export PATH=$ORACLE_HOME/bin:$PATH
+####################################
+#### Check Free Space on ASM #######
+####################################
+IFS='
+'
+USED_PERCENT=`sqlplus -s / as sysasm <<EOF
+set trimspool on feedback off heading off echo off
+select
+case
+when (total_mb-free_mb)/total_mb*100 > 90 then
+'Diskgroup '||name ||' usage more than 90%'
+when (total_mb-free_mb)/total_mb*100 > 85 then
+'Diskgroup '||name ||' usage more than 85%'
+end
+from v\\$asm_diskgroup where state='MOUNTED';
+<<EOF`
+if [[ -n $USED_PERCENT ]] ; then
+for x in $USED_PERCENT
+do
+echo "Alarm: $x"
+done
+fi
